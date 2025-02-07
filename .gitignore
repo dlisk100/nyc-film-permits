@@ -1,0 +1,17 @@
+# Project-specific ignores
+data_processing/data/raw/*
+data_processing/data/processed/*
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# IDE
+.idea/
+.vscode/
+
+# OS-specific
+.DS_Store
+.env
+
