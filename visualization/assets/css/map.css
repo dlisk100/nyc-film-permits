@@ -1,0 +1,37 @@
+/* assets/css/map.css */
+
+/* Popup Styles */
+.leaflet-popup-content {
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.popup-content {
+    padding: 5px;
+}
+
+.popup-content h4 {
+    margin: 0 0 5px;
+    font-size: 14px;
+}
+
+/* Legend Styles */
+.legend {
+    background: white;
+    padding: 8px;
+    border-radius: 4px;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+}
+
+.legend i {
+    width: 18px;
+    height: 18px;
+    float: left;
+    margin-right: 8px;
+    opacity: 0.7;
+}
+
+.legend h4 {
+    margin: 0 0 5px;
+    font-size: 14px;
+}
