@@ -21,7 +21,8 @@ class DataManager {
             this.weeklyData = await weeklyResponse.json();
             this.totalByType = await totalResponse.json();
             //this.dateRange = await dateRangeResponse.json(); // Store the loaded data NO LONGER NEEDED
-
+            console.log("weeklyData (first 5):", this.weeklyData.slice(0, 5));
+            console.log("totalByType (first 5):", this.totalByType.slice(0, 5));
             // Extract unique permit types from totalByType
             this.permitTypes = [...new Set(this.totalByType.map(item => item.EventType))];
             this.selectedTypes = new Set(this.permitTypes); // Initially select all
@@ -70,18 +71,19 @@ class DataManager {
     }
 
 
-   getFilteredData() {
+    getFilteredData() {
         if (this.currentWeek === 0) {
-            // "All Time" -  return an empty array so we use total_permits
             return [];
         } else {
-            // Filter data based on current week and selected types.
             let {year, week} = this.valueToWeek(this.currentWeek);
-            return this.weeklyData.filter(d =>
+            console.log("Filtering for year:", year, "week:", week, "selectedTypes:", this.selectedTypes);
+            const filtered = this.weeklyData.filter(d =>
                 d.week === week &&
                 d.year === year &&
                 this.selectedTypes.has(d.EventType)
             );
+            console.log("Filtered data (first 5):", filtered.slice(0, 5));
+            return filtered;
         }
     }
 

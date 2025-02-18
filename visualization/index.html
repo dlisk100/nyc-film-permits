@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NYC Film Permits Heatmap</title>
-    
+
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
+
     <style>
         #map {
             height: 600px;
@@ -22,13 +22,22 @@
         .filter-section {
             margin: 10px 0;
         }
+        /* Add this to put the slider on its own line */
+        .slider-container {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start; /* Left-align items */
+        }
+
     </style>
 </head>
 <body>
     <div class="controls">
         <div class="filter-section">
-            <label>Week: <span id="weekDisplay">1</span></label>
-            <input type="range" id="weekSlider" min="1" max="52" value="1">
+            <div class="slider-container">
+                <label>Week: <span id="weekDisplay">All Time</span></label>
+                <input type="range" id="weekSlider" min="0" max="52" value="0">
+            </div>
         </div>
         <div class="filter-section">
             <h4>Permit Types:</h4>
@@ -43,5 +52,30 @@
     <script src="assets/js/data.js"></script>
     <script src="assets/js/map.js"></script>
     <script src="assets/js/controls.js"></script>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        // 1. Initialize DataManager and load data.
+        const dataManager = new DataManager();
+        await dataManager.loadData();
+
+        // 2. Initialize MapVisualization.
+        const mapViz = new MapVisualization(dataManager); // Pass dataManager
+        await mapViz.loadZipBoundaries(); // Load boundaries *before* initializing the map.
+        mapViz.init(); // Now it's safe to initialize the map.
+
+        // 3. Initialize Controls.
+        const controls = new Controls(dataManager, mapViz); // Pass dataManager and mapViz
+
+        // 4. Initial map update (All Time).
+        mapViz.updateMap(dataManager.getFilteredData());
+
+        console.log('Initialization complete');
+      } catch (error) {
+        console.error('Initialization error:', error);
+      }
+    });
+    </script>
 </body>
 </html>

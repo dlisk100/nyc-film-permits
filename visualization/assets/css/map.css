@@ -35,3 +35,46 @@
     margin: 0 0 5px;
     font-size: 14px;
 }
+
+.all-time-btn {
+    margin-left: 10px;
+    padding: 5px 10px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.all-time-btn:hover {
+    background-color: #e9ecef;
+}
+
+/* Slider styling for the detent */
+input[type="range"] {
+    background: linear-gradient(to right,
+        #4CAF50 0%, #4CAF50 5%,  /* Detent section */
+        #ddd 5%, #ddd 100%       /* Rest of slider */
+    );
+    height: 8px;
+    border-radius: 4px;
+    -webkit-appearance: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #fff;
+    border: 2px solid #4CAF50;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: #fff;
+    border: 2px solid #4CAF50;
+    border-radius: 50%;
+    cursor: pointer;
+}
