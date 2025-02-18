@@ -4,110 +4,146 @@ class Controls {
       this.weekSlider = document.getElementById('weekSlider');
       this.weekDisplay = document.getElementById('weekDisplay');
       this.permitTypesContainer = document.getElementById('permitTypes');
+      this.permitTypesDropdown = document.querySelector('.permit-types-dropdown');
       this.dataManager = dataManager;
       this.mapViz = mapViz;
       this.initialize();
   }
 
   initialize() {
-      this.weekSlider.addEventListener('input', () => {
+      // Initialize slider
+      this.weekSlider.addEventListener('input', (e) => {
           this.updateFilters();
+          e.stopPropagation();
       });
 
-      // Allow selection of week 0 (full span)
-      //this.weekSlider.min = 0;
-      //this.weekSlider.max = 52;
-      //this.weekSlider.value = 0;
+      // Prevent map interaction when using slider
+      this.weekSlider.addEventListener('mousedown', (e) => {
+          e.stopPropagation();
+      });
 
-      // Add "All Time" button
-      const allTimeBtn = document.createElement('button');
-      allTimeBtn.textContent = 'Show All Time';
-      allTimeBtn.className = 'all-time-btn';
+      this.weekSlider.addEventListener('mousemove', (e) => {
+          if (e.buttons === 1) { // Left mouse button is pressed
+              e.stopPropagation();
+          }
+      });
+
+      // Initialize permit types dropdown
+      this.permitTypesDropdown.addEventListener('click', (e) => {
+          this.permitTypesContainer.classList.toggle('show');
+          e.stopPropagation();
+      });
+
+      // Close dropdown when clicking outside
+      document.addEventListener('click', () => {
+          this.permitTypesContainer.classList.remove('show');
+      });
+
+      // Initialize "All Time" button
+      const allTimeBtn = document.querySelector('.all-time-btn');
       allTimeBtn.onclick = () => {
           this.weekSlider.value = 0;
           this.updateFilters();
       };
-      this.weekSlider.parentNode.appendChild(allTimeBtn);
 
       this.setSliderRange();
       this.updateDateDisplay();
       this.createPermitTypeFilters();
   }
 
-    setSliderRange() {
-      if (this.dataManager.minWeek !== null && this.dataManager.maxWeek !== null) {
-        this.weekSlider.min = this.dataManager.minWeek;
-        this.weekSlider.max = this.dataManager.maxWeek;
+  setSliderRange() {
+      this.weekSlider.min = 0;  // 0 = All Time
+      this.weekSlider.max = this.dataManager.availableWeeks.length;  // Number of available weeks
+      this.weekSlider.value = 0;  // Start with All Time
+      this.weekSlider.step = 1;
+  }
+
+  updateDateDisplay() {
+      const index = parseInt(this.weekSlider.value);
+      
+      if (index === 0) {
+          this.weekDisplay.textContent = "All Time";
+          return;
       }
-    }
 
-    updateDateDisplay() {
-        const weekValue = parseInt(this.weekSlider.value);
+      const weekInfo = this.dataManager.getWeekFromIndex(index);
+      if (!weekInfo) return;  // Safety check
+      
+      // Create date for Monday of the specified week
+      const date = new Date(weekInfo.year, 0, 1);
+      date.setDate(date.getDate() + (weekInfo.week - 1) * 7);
+      
+      // Adjust to Monday if necessary
+      while (date.getDay() !== 1) {
+          date.setDate(date.getDate() - 1);
+      }
 
-        if (weekValue === 0) {
-            this.weekDisplay.textContent = "All Time";
-            return;
-        }
+      // Create end date (Sunday)
+      const endDate = new Date(date);
+      endDate.setDate(endDate.getDate() + 6);
 
-        const {year, week} = this.dataManager.valueToWeek(weekValue);
+      // Format dates
+      const startOptions = { month: 'long', day: 'numeric' };
+      const endOptions = { month: 'long', day: 'numeric', year: 'numeric' };
+      
+      this.weekDisplay.textContent = `${date.toLocaleDateString('en-US', startOptions)} - ${endDate.toLocaleDateString('en-US', endOptions)}`;
+  }
 
-        let startDate = new Date(year, 0, 1 + (week - 1) * 7);
+  createPermitTypeFilters() {
+      this.permitTypesContainer.innerHTML = '';
 
-        while (startDate.getDay() !== 1) { // 1 represents Monday
-            startDate.setDate(startDate.getDate() - 1);
-            if (startDate.getFullYear() < year) {
-              startDate.setDate(startDate.getDate()+7)
-              break;
-            }
-        }
+      this.dataManager.permitTypes.forEach(type => {
+          const label = document.createElement('label');
+          
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.id = `type-${type.replace(/\s+/g, '-')}`;
+          checkbox.value = type;
+          checkbox.checked = true;
+          checkbox.addEventListener('change', (e) => {
+              e.stopPropagation();
+              this.updateFilters();
+              this.updateDropdownText();
+          });
 
-        let endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + 6);
+          const span = document.createElement('span');
+          span.textContent = type;
 
-        const options = { year: 'numeric', month: 'long', day: 'numeric' };
-        this.weekDisplay.textContent = `${startDate.toLocaleDateString('en-US', options)} - ${endDate.toLocaleDateString('en-US', options)}`;
-    }
+          label.appendChild(checkbox);
+          label.appendChild(span);
+          
+          // Prevent clicks on the label from closing the dropdown
+          label.addEventListener('click', (e) => {
+              e.stopPropagation();
+          });
+          
+          this.permitTypesContainer.appendChild(label);
+      });
 
+      this.updateDropdownText();
+  }
 
-    createPermitTypeFilters() {
-        this.permitTypesContainer.innerHTML = '';
+  updateDropdownText() {
+      const selectedTypes = Array.from(this.permitTypesContainer.querySelectorAll('input:checked'));
+      const dropdownText = this.permitTypesDropdown.querySelector('span');
+      
+      if (selectedTypes.length === this.dataManager.permitTypes.length) {
+          dropdownText.textContent = 'All Permit Types';
+      } else if (selectedTypes.length === 0) {
+          dropdownText.textContent = 'No Permit Types Selected';
+      } else if (selectedTypes.length === 1) {
+          dropdownText.textContent = selectedTypes[0].value;
+      } else {
+          dropdownText.textContent = `${selectedTypes.length} Types Selected`;
+      }
+  }
 
-        this.dataManager.permitTypes.forEach(type => {
-            const div = document.createElement('div');
-
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.id = `type-${type.replace(/\s+/g, '-')}`;
-            checkbox.value = type;
-            checkbox.checked = true;
-            checkbox.addEventListener('change', () => this.updateFilters());
-
-            const label = document.createElement('label');
-            label.htmlFor = checkbox.id;
-            label.textContent = type;
-
-            div.appendChild(checkbox);
-            div.appendChild(label);
-            this.permitTypesContainer.appendChild(div);
-        });
-    }
-
-
-    updateFilters() {
-      const weekValue = parseInt(this.weekSlider.value);
+  updateFilters() {
+      const index = parseInt(this.weekSlider.value);
       const selectedTypes = Array.from(this.permitTypesContainer.querySelectorAll('input:checked')).map(cb => cb.value);
-
-      this.dataManager.updateFilters(weekValue, selectedTypes);
+      
+      this.dataManager.updateFilters(index, selectedTypes);
       this.mapViz.updateMap(this.dataManager.getFilteredData());
       this.updateDateDisplay();
-    }
-}
-
-let controls;
-function initializeControls() {
-    try {
-      controls = new Controls(dataManager, mapViz);
-    } catch (error) {
-        console.error('Error initializing controls:', error);
-    }
+  }
 }

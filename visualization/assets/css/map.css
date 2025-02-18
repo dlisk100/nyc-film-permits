@@ -49,6 +49,31 @@
     background-color: #e9ecef;
 }
 
+.time-slider {
+    width: 100%;
+    margin: 10px 0;
+}
+
+.play-button {
+    width: 30px;
+    height: 30px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.play-button:hover {
+    background-color: #45a049;
+}
+
+.play-button.active {
+    border: 2px solid #4CAF50;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
 /* Slider styling for the detent */
 input[type="range"] {
     background: linear-gradient(to right,
@@ -77,4 +102,21 @@ input[type="range"]::-moz-range-thumb {
     border: 2px solid #4CAF50;
     border-radius: 50%;
     cursor: pointer;
+}
+
+/* Map container adjustments */
+#map {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+/* Clean up any margin/padding that might interfere with controls */
+.leaflet-control {
+    clear: both;
+}
+
+/* Basic attribution styling */
+.leaflet-control-attribution {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    padding: 0 5px;
 }

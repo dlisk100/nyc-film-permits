@@ -6,28 +6,24 @@ class DataManager {
         this.currentWeek = 0; // Initialize to 0 for "All Time"
         this.selectedTypes = new Set();
         this.permitTypes = []; // Store permit types here
-        this.minWeek = null; // For slider
-        this.maxWeek = null; // For slider
+        this.availableWeeks = []; // Array of {year, week} objects in chronological order
     }
 
     async loadData() {
         try {
             const [weeklyResponse, totalResponse] = await Promise.all([
-                fetch('../../data_processing/data/processed/weekly_permits.json'), // Corrected path
-                fetch('../../data_processing/data/processed/total_by_type.json')  // Corrected path
-                // NO MORE monthly_stats.json!
+                fetch('../../data_processing/data/processed/weekly_permits.json'),
+                fetch('../../data_processing/data/processed/total_by_type.json')
             ]);
 
             this.weeklyData = await weeklyResponse.json();
             this.totalByType = await totalResponse.json();
-            //this.dateRange = await dateRangeResponse.json(); // Store the loaded data NO LONGER NEEDED
-            console.log("weeklyData (first 5):", this.weeklyData.slice(0, 5));
-            console.log("totalByType (first 5):", this.totalByType.slice(0, 5));
-            // Extract unique permit types from totalByType
+            
+            // Extract unique permit types
             this.permitTypes = [...new Set(this.totalByType.map(item => item.EventType))];
             this.selectedTypes = new Set(this.permitTypes); // Initially select all
 
-            // Calculate minWeek and maxWeek *after* loading data
+            // Calculate available weeks after loading data
             this.calculateMinMaxWeeks();
 
             return true;
@@ -36,61 +32,76 @@ class DataManager {
             return false;
         }
     }
-     // New function to calculate min and max week numbers
+
     calculateMinMaxWeeks() {
-        if (!this.weeklyData || this.weeklyData.length === 0) {
-            return; // No data loaded yet.
-        }
+        if (!this.weeklyData || this.weeklyData.length === 0) return;
 
-        let minWeek = Infinity;
-        let maxWeek = -Infinity;
+        // Get unique year-week combinations
+        const weekSet = new Set();
+        this.weeklyData.forEach(permit => {
+            weekSet.add(`${permit.year}-${permit.week}`);
+        });
 
-        for (const permit of this.weeklyData) {
-            const weekVal = this.weekToValue(permit.year, permit.week);
-            if (weekVal < minWeek) {
-                minWeek = weekVal;
-            }
-            if (weekVal > maxWeek) {
-                maxWeek = weekVal;
-            }
-        }
-        this.minWeek = minWeek;
-        this.maxWeek = maxWeek;
+        // Convert to array of objects and sort chronologically
+        this.availableWeeks = Array.from(weekSet)
+            .map(yw => {
+                const [year, week] = yw.split('-').map(Number);
+                return { year, week };
+            })
+            .sort((a, b) => {
+                if (a.year !== b.year) return a.year - b.year;
+                return a.week - b.week;
+            });
+
+        console.log(`Found ${this.availableWeeks.length} unique weeks`);
     }
 
-    // Helper function: Convert year and week to a single comparable number
-    weekToValue(year, week) {
-      return (year * 53) + week;
+    getWeekFromIndex(index) {
+        if (index === 0) return null; // All Time
+        return this.availableWeeks[index - 1];
     }
-
-    // Helper function: Convert a single value back to year and week
-    valueToWeek(value) {
-      const year = Math.floor(value / 53);
-      const week = value % 53;
-      return { year: year, week: week };
-    }
-
 
     getFilteredData() {
         if (this.currentWeek === 0) {
-            return [];
-        } else {
-            let {year, week} = this.valueToWeek(this.currentWeek);
-            console.log("Filtering for year:", year, "week:", week, "selectedTypes:", this.selectedTypes);
-            const filtered = this.weeklyData.filter(d =>
-                d.week === week &&
-                d.year === year &&
-                this.selectedTypes.has(d.EventType)
-            );
-            console.log("Filtered data (first 5):", filtered.slice(0, 5));
-            return filtered;
+            // All Time: aggregate data across all weeks for selected types
+            const aggregatedData = new Map(); // Use zipcode as key
+            
+            const filteredData = this.weeklyData.filter(d => this.selectedTypes.has(d.EventType));
+            console.log('Selected Types:', Array.from(this.selectedTypes));
+            console.log('Filtered Data Sample:', filteredData.slice(0, 3));
+            
+            filteredData.forEach(d => {
+                const key = d["ZipCode(s)"];
+                if (!aggregatedData.has(key)) {
+                    aggregatedData.set(key, {
+                        "ZipCode(s)": d["ZipCode(s)"],
+                        permit_count: 0,
+                        EventType: d.EventType,
+                        Latitude: d.Latitude,
+                        Longitude: d.Longitude
+                    });
+                }
+                const entry = aggregatedData.get(key);
+                entry.permit_count += d.permit_count;
+            });
+            
+            const result = Array.from(aggregatedData.values());
+            console.log('Aggregated Data Sample:', result.slice(0, 3));
+            return result;
         }
+
+        const weekInfo = this.getWeekFromIndex(this.currentWeek);
+        if (!weekInfo) return []; // Safety check
+
+        return this.weeklyData.filter(d =>
+            d.week === weekInfo.week &&
+            d.year === weekInfo.year &&
+            this.selectedTypes.has(d.EventType)
+        );
     }
 
-    updateFilters(week, types) {
-        this.currentWeek = week;
-        this.selectedTypes = new Set(types); // Use a Set for efficient lookups
+    updateFilters(weekIndex, types) {
+        this.currentWeek = weekIndex;
+        this.selectedTypes = new Set(types);
     }
 }
-
-const dataManager = new DataManager();

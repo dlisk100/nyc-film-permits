@@ -6,7 +6,6 @@ class MapVisualization {
         this.zipBoundaries = null;
         this.legend = null;
         this.maxTotalPermits = 0;
-        this.quantileBreaks = [];
         this.dataManager = dataManager;
     }
 
@@ -19,8 +18,14 @@ class MapVisualization {
         });
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
+            attribution: ' Leaflet | OpenStreetMap contributors',
+            position: 'bottomright',
+            className: 'map-attribution',
+            opacity: 1
         }).addTo(this.map);
+
+        // Ensure attribution control is in the correct position
+        this.map.attributionControl.setPosition('bottomright');
 
         await this.loadZipBoundaries();  // Make sure boundaries are loaded first
 
@@ -41,13 +46,6 @@ class MapVisualization {
             const allTotals = this.zipBoundaries.features
                 .map(f => f.properties.total_permits || 0)
                 .sort((a, b) => a - b);
-
-            // Calculate quantile breaks for better distribution (6 breaks for 7 categories)
-            this.quantileBreaks = [];
-            for (let i = 1; i <= 6; i++) {
-                const index = Math.floor(allTotals.length * i / 7);
-                this.quantileBreaks.push(allTotals[index] || 0);
-            }
 
             this.maxTotalPermits = Math.max(...allTotals);
             
@@ -74,16 +72,17 @@ class MapVisualization {
         const colors = CONFIG.colors.heatmap;
         
         if (isAllTime) {
-            // Quantile-based coloring for all-time data
-            let breakIndex = 0;
-            while (breakIndex < this.quantileBreaks.length && 
-                   value > this.quantileBreaks[breakIndex]) {
-                breakIndex++;
+            // Use the new breaks for all-time view
+            const breaks = CONFIG.colors.breaks;
+            for (let i = 0; i < breaks.length - 1; i++) {
+                if (value <= breaks[i + 1]) {
+                    return colors[i];
+                }
             }
-            return colors[Math.min(breakIndex, colors.length - 1)];
+            return colors[colors.length - 1];
         }
 
-        // Weekly view - use absolute permit counts with new categories
+        // Weekly view - preserve original behavior
         if (value <= 0) return colors[0];
         if (value <= 1) return colors[1];
         if (value <= 3) return colors[2];
@@ -95,10 +94,7 @@ class MapVisualization {
 
     onEachFeature(feature, layer) {
         const zipCode = feature.properties.postalCode;
-        layer.bindPopup(`
-            <strong>ZIP Code:</strong> ${zipCode}<br>
-            <strong>Total Permits:</strong> ${feature.properties.total_permits || 0}
-        `);
+        layer.bindPopup(this.getPopupContent(zipCode, feature.properties.total_permits || 0));
 
         layer.on({
             mouseover: e => e.target.setStyle({
@@ -110,19 +106,28 @@ class MapVisualization {
     }
 
     updateMap(weeklyData) {
-        if (!this.zipBoundaries) return;
+        // Check if map and data layer are initialized
+        if (!this.dataLayer || !this.zipBoundaries) {
+            console.log('Map not fully initialized yet, skipping update');
+            return;
+        }
 
-        const weeklyCounts = weeklyData.reduce((acc, item) => {
+        console.log('Received data sample:', weeklyData.slice(0, 3));
+
+        // Create a map of zip codes to permit counts from the filtered data
+        const permitCounts = weeklyData.reduce((acc, item) => {
             const zip = String(item["ZipCode(s)"]).trim();
-            acc[zip] = (acc[zip] || 0) + item.permit_count;
+            const count = item.permit_count || 0;
+            acc[zip] = (acc[zip] || 0) + count;
             return acc;
         }, {});
 
+        console.log('Permit counts sample:', Object.entries(permitCounts).slice(0, 3));
+
         this.dataLayer.eachLayer(layer => {
             const zipCode = String(layer.feature.properties.postalCode).trim();
-            const permits = this.dataManager.currentWeek === 0 
-                ? layer.feature.properties.total_permits || 0
-                : weeklyCounts[zipCode] || 0;
+            const permits = permitCounts[zipCode] || 0;
+            console.log(`Zip ${zipCode}: ${permits} permits`);
 
             layer.feature.properties.permit_count = permits;
             layer.setStyle({
@@ -147,40 +152,38 @@ class MapVisualization {
         this.legend = L.control({ position: 'bottomright' });
         this.legend.onAdd = () => {
             const div = L.DomUtil.create('div', 'info legend');
-            const isAllTime = this.dataManager.currentWeek === 0;
+            const colors = CONFIG.colors.heatmap;
             
-            div.innerHTML = isAllTime 
-                ? this.getAllTimeLegend() 
-                : this.getWeeklyLegend();
+            if (this.dataManager.currentWeek === 0) {
+                // All-time view legend
+                const breaks = CONFIG.colors.breaks;
+                div.innerHTML = `
+                    <h4>Total Permits</h4>
+                    <div><i style="background:${colors[0]}"></i> 0</div>
+                    <div><i style="background:${colors[1]}"></i> 1-${breaks[2]}</div>
+                    <div><i style="background:${colors[2]}"></i> ${breaks[2]}-${breaks[3]}</div>
+                    <div><i style="background:${colors[3]}"></i> ${breaks[3]}-${breaks[4]}</div>
+                    <div><i style="background:${colors[4]}"></i> ${breaks[4]}-${breaks[5]}</div>
+                    <div><i style="background:${colors[5]}"></i> ${breaks[5]}-${breaks[6]}</div>
+                    <div><i style="background:${colors[6]}"></i> >${breaks[6]}</div>
+                `;
+            } else {
+                // Weekly view legend
+                div.innerHTML = `
+                    <h4>Weekly Permits</h4>
+                    <div><i style="background:${colors[0]}"></i> 0</div>
+                    <div><i style="background:${colors[1]}"></i> 1</div>
+                    <div><i style="background:${colors[2]}"></i> 2-3</div>
+                    <div><i style="background:${colors[3]}"></i> 4-6</div>
+                    <div><i style="background:${colors[4]}"></i> 7-10</div>
+                    <div><i style="background:${colors[5]}"></i> 11-15</div>
+                    <div><i style="background:${colors[6]}"></i> >15</div>
+                `;
+            }
             
             return div;
         };
 
         this.legend.addTo(this.map);
-    }
-
-    getAllTimeLegend() {
-        return `
-            <h4>Total Permits</h4>
-            ${this.quantileBreaks.map((brk, i) => `
-                <div><i style="background:${CONFIG.colors.heatmap[i]}"></i>
-                ${i === 0 ? '≤' : this.quantileBreaks[i-1] + '-'}${brk}</div>
-            `).join('')}
-            <div><i style="background:${CONFIG.colors.heatmap[6]}"></i>
-            >${this.quantileBreaks[5]}</div>
-        `;
-    }
-
-    getWeeklyLegend() {
-        return `
-            <h4>Weekly Permits</h4>
-            <div><i style="background:${CONFIG.colors.heatmap[0]}"></i> 0</div>
-            <div><i style="background:${CONFIG.colors.heatmap[1]}"></i> 1</div>
-            <div><i style="background:${CONFIG.colors.heatmap[2]}"></i> 2-3</div>
-            <div><i style="background:${CONFIG.colors.heatmap[3]}"></i> 4-6</div>
-            <div><i style="background:${CONFIG.colors.heatmap[4]}"></i> 7-10</div>
-            <div><i style="background:${CONFIG.colors.heatmap[5]}"></i> 11-15</div>
-            <div><i style="background:${CONFIG.colors.heatmap[6]}"></i> >15</div>
-        `;
     }
 }
