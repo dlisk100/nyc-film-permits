@@ -21,6 +21,7 @@
     padding: 8px;
     border-radius: 4px;
     box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+    margin-bottom: 45px !important;  /* Add space above attribution */
 }
 
 .legend i {
@@ -107,16 +108,18 @@ input[type="range"]::-moz-range-thumb {
 /* Map container adjustments */
 #map {
     position: relative;
+    height: 700px;
     margin-bottom: 20px;
+}
+
+/* Attribution control styling */
+.leaflet-control-attribution {
+    background-color: white !important;
+    padding: 5px 10px !important;
+    font-size: 12px !important;
 }
 
 /* Clean up any margin/padding that might interfere with controls */
 .leaflet-control {
     clear: both;
-}
-
-/* Basic attribution styling */
-.leaflet-control-attribution {
-    background-color: rgba(255, 255, 255, 0.9) !important;
-    padding: 0 5px;
 }

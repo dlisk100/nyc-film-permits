@@ -18,14 +18,8 @@ class MapVisualization {
         });
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: ' Leaflet | OpenStreetMap contributors',
-            position: 'bottomright',
-            className: 'map-attribution',
-            opacity: 1
+            attribution: ' OpenStreetMap contributors'
         }).addTo(this.map);
-
-        // Ensure attribution control is in the correct position
-        this.map.attributionControl.setPosition('bottomright');
 
         await this.loadZipBoundaries();  // Make sure boundaries are loaded first
 
@@ -94,14 +88,25 @@ class MapVisualization {
 
     onEachFeature(feature, layer) {
         const zipCode = feature.properties.postalCode;
-        layer.bindPopup(this.getPopupContent(zipCode, feature.properties.total_permits || 0));
+        layer.bindPopup(this.getPopupContent(zipCode, feature.properties.permit_count || 0));
 
         layer.on({
-            mouseover: e => e.target.setStyle({
-                weight: 2,
-                fillOpacity: 0.9
-            }),
-            mouseout: e => this.dataLayer.resetStyle(e.target)
+            mouseover: e => {
+                const permits = e.target.feature.properties.permit_count || 0;
+                e.target.setStyle({
+                    weight: 2,
+                    fillOpacity: 0.9,
+                    fillColor: this.getColor(permits, this.dataManager.currentWeek === 0)
+                });
+            },
+            mouseout: e => {
+                const permits = e.target.feature.properties.permit_count || 0;
+                e.target.setStyle({
+                    weight: 1,
+                    fillOpacity: 0.7,
+                    fillColor: this.getColor(permits, this.dataManager.currentWeek === 0)
+                });
+            }
         });
     }
 
